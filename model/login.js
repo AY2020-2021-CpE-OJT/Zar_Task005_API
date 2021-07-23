@@ -1,14 +1,14 @@
 const mongoose = require('mongoose');
 
 const model = new mongoose.Schema({
-    username : 
+    email : 
     {
         type: String, require:true
     },
     password : 
     {
         type: String, require:true
-    }
+    },
 });
 
 module.exports = mongoose.model('Login auth', model );
