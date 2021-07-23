@@ -1,60 +1,31 @@
 const model = require('../model/models.js');
 const express = require('express');
-const users = require('../model/login');
 const router = express.Router();
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
-const bc = require('bcrypt');
-const crypto = require('crypto');
+require('./passport');
 
-const user = process.env.DB_USER;
-const pass = process.env.DB_PASS;
-const secret = process.env.SECRET_KEY;
-
-var token = jwt.sign({ user , secret}, 'TOP_SECRET');
-var md5 = crypto.createHash('md5').update(token).digest('hex');
 
 router.use(express.json());
 
-router.get('/get' , async (req,res) => {
-    if (req.body.token === md5) {
-    const phonedoc = await model.find();
+
+router.get('/get', async (req,res) => {
+    var mysort = {firstname : 1};
+    const phonedoc = await model.find().sort(mysort);
     res.json(phonedoc);
-    } else {
-        res.json(400, {
-            error: 1,
-            msg: "Requires token for Authorization to Access API",
-            token : " ? "
-        });
-    }
 });
 
-router.get('/get/:firstname', async (req, res) => {
-    if (req.body.token === md5) {
-        const phonedocs = await model.find({firstname : req.params.firstname}).then(function(phonedocs) {
-            res.json(phonedocs);
-        });
-    } else {
-        res.json(400, {
-            error: 1,
-            msg: "Requires token for Authorization to Access API",
-            token : " ? "
-        });
-    }
-})
-router.get('/get/:lastname', async (req, res) => {
-    if (req.body.token === md5) {
-        const phonedocs = await model.find({lastname : req.params.lastname}).then(function(phonedocs) {
-            res.json(phonedocs);
-        });
-    } else {
-        res.json(400, {
-            error: 1,
-            msg: "Requires token for Authorization to Access API",
-            token : " ? "
-        });
-    }
-})
+router.get('/get/firstname/:firstname', async (req, res) => {
+    const phonedocs = await model.find({firstname : req.params.firstname}).then(function(phonedocs) {
+        res.json(phonedocs);
+    });
+});
+
+router.get('/get/lname/:lastname', async (req, res) => {
+    const phonedocs = await model.findOne({lastname : req.params.lastname}).then(function(phonedocs) {
+        res.json(phonedocs);
+    });
+});
 
 router.post('/create', async(req, res) => {
 
@@ -62,73 +33,52 @@ router.post('/create', async(req, res) => {
     {
         lastname : req.body.lastname,
         firstname : req.body.firstname,
-        phonenumbers : req.body.phonenumbers
+        phonenumbers : req.body.phonenumbers,
     });
-    if (req.body.token == md5) {
-        Phonebook.save().then(data => {
-            res.json(data);
-        }) 
-        .catch(err => {
-            res.json({message : err})
-        });
-    } else {
-        res.json(400, {
-            error: 1,
-            msg: "Requires token for Authorization to Access API",
-            token : " ? "
-        });
-    }
+    Phonebook.save().then(data => {
+        res.json(data);
+    }) 
+    .catch(err => {
+        res.json({message : err})
+    });
 });
 
+router.put('/update/:firstname', async (req,res) => {
+    const doc = await model.findByIdAndUpdate({firstname: req.params.firstname}, req.body).then(function() {
+        model.findOne({firstname: req.params.firstname}).then(function(doc){
+            res.json(doc);
+        })
+    });
+});
 
-router.put('/update/:id', async (req,res) => {
-    if (req.body.token === md5) {
-        const doc = await model.findByIdAndUpdate({_id: req.params.id}, req.body).then(function() {
-            model.findOne({_id: req.params.id}).then(function(doc){
-                res.json(doc);
-            })
-        });
-    } else {
-        res.json(400, {
-            error: 1,
-            msg: "Requires token for Authorization to Access API",
-            token : " ? "
-        });
-    }
+router.patch('/edit/:id', async (req,res) => {
+    const doc = await model.findOneAndUpdate(req.params._id, {firstname: req.body.firstname, lastname: req.body.lastname, phonenumbers: req.body.phonenumbers}, req.body).then(function() {
+        model.findOne({_id: req.params.id}).then(function(doc){
+            res.json(doc);
+        })
+    });
 });
 
 router.delete('/delete/:id', async(req,res) => {
-    if (req.body.token === md5) {
-        const doc = await model.findByIdAndDelete({_id:req.params.id}).then(function(doc) {
+    const doc = await model.findByIdAndDelete({_id:req.params.id}).then(function(doc) {
         res.json(doc);
-        });
-    } else {
-        res.json(400, {
-            error: 1,
-            msg: "Requires token for Authorization to Access API",
-            token : " ? "
-        });
-    }
-})
-
-
-router.post('/login', async(req, res) => {
-    const account = new users(
-        {
-            username : req.body.username,
-            password : req.body.password,
-            token : req.body.token,
-        });
-    if (account.username === user && account.password === pass) {
-        
-        res.json({message : "Succesfully login" , token : md5});
-
-    } else {
-            res.json(400, {
-            error: 1,
-            msg: "Invalid credentials"
-        });
-    }
+    });
 });
+
+// function verifyToken(req,res,next) {
+//     const bearerHeader = req.headers['authorization'];
+//     if (typeof bearerHeader !== undefined) {
+//         const bearer = bearerHeader.split(" ");
+//         const bearerToken = bearer[1];
+//         req.token = bearerToken;
+//         next();
+//     } else {
+//         res.sendStatus(403);
+//     }
+// }
+router.get('/profile', (req, res, next) => {
+    res.json(req.user);
+});
+
 
 module.exports = router;
